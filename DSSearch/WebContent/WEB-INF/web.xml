@@ -4,7 +4,7 @@
   <servlet>
     <display-name>dssearch</display-name>
     <servlet-name>dssearch</servlet-name>
-    <servlet-class>dssearch.DSSearch</servlet-class>
+    <servlet-class>dssearch.controller.DSSearch</servlet-class>
   </servlet>
   <servlet-mapping>
     <servlet-name>dssearch</servlet-name>
@@ -14,11 +14,6 @@
     <session-timeout>30</session-timeout>
   </session-config>
   <welcome-file-list>
-    <welcome-file>index.html</welcome-file>
-    <welcome-file>index.htm</welcome-file>
-    <welcome-file>index.jsp</welcome-file>
-    <welcome-file>default.html</welcome-file>
-    <welcome-file>default.htm</welcome-file>
-    <welcome-file>default.jsp</welcome-file>
+    <welcome-file>dssearch</welcome-file>
   </welcome-file-list>
 </web-app>
