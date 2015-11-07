@@ -4,11 +4,11 @@
 <html>
 <head>
 <script>
-	function select_file() {
+	function selectFile() {
 		var filename = document.getElementById('filename');
 		filename.click();
 	}
-	function set_url(){
+	function setURL(){
 		var filename = document.getElementById('filename');
 		var url = document.getElementById('url');
 		var void_ = document.getElementById('void');
@@ -36,20 +36,25 @@
 	<br>
 	<center>
 		<table>
-			<tr>
+			<tr align="center">
 				<td>
 					<img src="./img/LOD_Cloud_Diagram.png" alt="LOD Cloud Diagram" style="width: 404px; height: 228px;">
 				</td>
 			</tr>
 			<tr>
 				<td>
-					<form name="search" action="dssearch" method="post">
+					<form name="search" action="newsearch" method="post">
 						<input type="hidden" name="void" id="void"/>
 						<input type="url" name="url" id="url" size="60" placeholder="void URL of the target dataset" />
+						<input list="methods" name="method" value="colaborative" size="12" placeholder="method">
+						<datalist id="methods">
+    						<option value="colaborative" default>
+    						<option value="similarity">
+						</datalist>
 						<input type="submit" value="Search"><br> 
 					</form>
-					<input type="file" id=filename style="display:none;" onchange="javascript:set_url();"> 
-					<a href="javascript:select_file();">local file</a>
+					<input type="file" id=filename style="display:none;" onchange="javascript:setURL();"> 
+					<a href="javascript:selectFile();">local file</a>
 				</td>
 			</tr>
 		</table>

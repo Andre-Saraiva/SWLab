@@ -1,20 +1,14 @@
 package dssearch.controller;
 
 import java.io.IOException;
-import java.util.List;
 
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-import com.hp.hpl.jena.ontology.OntModel;
+public class ShowResult extends HttpServlet {
 
-import dssearch.model.Entry;
-import dssearch.model.Search;
-
-public class ShowResult extends HttpServlet{
-	
 	private static final long serialVersionUID = 1L;
 
 	@Override
@@ -26,7 +20,20 @@ public class ShowResult extends HttpServlet{
 	@Override
 	protected void doPost(HttpServletRequest request, HttpServletResponse response)
 			throws ServletException, IOException {
-		response.getWriter().write("Error: Get method not implemented.");
+
+		int limit = (Integer) request.getSession().getAttribute("limit");
+		int offset = (Integer) request.getSession().getAttribute("offset");
+		String command = (String) request.getParameter("command");
+		if (command.equals("next"))
+			offset += limit;
+		else if (command.equals("previous"))
+			offset -= limit;
+		else if (command.equals("top"))
+			offset = 0;
+		offset = offset >= 0 ? offset : 0;
+		request.getSession().setAttribute("offset",(Integer)offset);
+
+		request.getRequestDispatcher("result.jsp").forward(request, response);
 	}
 
 }

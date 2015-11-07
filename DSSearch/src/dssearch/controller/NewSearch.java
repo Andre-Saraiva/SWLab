@@ -26,23 +26,32 @@ public class NewSearch extends HttpServlet {
 	@Override
 	protected void doPost(HttpServletRequest request, HttpServletResponse response)
 			throws ServletException, IOException {
+		OntModel ontVoid = null;
 		String void_ = request.getParameter("void").toString();
-		if (void_ == null || void_.equals(""))
-			void_ = getVoid(request.getParameter("url").toString());
-		OntModel ontVoid = loadVoid(void_);
-		List<Entry> result = Search.search(ontVoid, 20, 0, "default");
-		response.getWriter().write("");
+		if (!(void_ == null || void_.equals("")))
+			ontVoid = toOntVoid(void_);
+		else
+			ontVoid = getOntVoid(request.getParameter("url").toString());
+		String method = request.getParameter("method").toString();
+		int limit = 100;
+		int offset = 0;
+
+		List<Entry> result = Search.execute(ontVoid, limit, offset, method);
+		request.getSession().setAttribute("result", result);
+		request.getSession().setAttribute("limit", (Integer) limit);
+		request.getSession().setAttribute("offset", (Integer) offset);
+		request.getRequestDispatcher("result.jsp").forward(request, response);
 	}
 
-	private String getVoid(String url) {
-		String void_ = "";
+	private OntModel getOntVoid(String url) {
+		OntModel ontVoid = null;
 		//
 		// TODO Carregar descrição Void
 		//
-		return void_;
+		return ontVoid;
 	}
 
-	private OntModel loadVoid(String void_) {
+	private OntModel toOntVoid(String void_) {
 		OntModel ontVoid = null;
 		//
 		// TODO Converter descrição void para modelo Ontologia Jena
