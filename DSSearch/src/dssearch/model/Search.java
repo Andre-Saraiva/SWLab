@@ -3,7 +3,7 @@ package dssearch.model;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.apache.jena.ontology.OntModel;
+import com.hp.hpl.jena.ontology.OntModel;
 
 public class Search {
 

@@ -8,7 +8,7 @@ import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
-import org.apache.jena.ontology.OntModel;
+import com.hp.hpl.jena.ontology.OntModel;
 
 import dssearch.model.Entry;
 import dssearch.model.Search;

@@ -48,6 +48,7 @@
 	<hr>
 	<center>
 		<a href="javascript:previous();">previous</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+		<a href="javascript:previous();">top</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
 		<a href="javascript:next();">next</a>
 	</center>
 </body>
