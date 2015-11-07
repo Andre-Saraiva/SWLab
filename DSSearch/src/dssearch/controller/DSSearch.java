@@ -1,11 +1,17 @@
 package dssearch.controller;
 
 import java.io.IOException;
+import java.util.List;
 
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
+
+import org.apache.jena.ontology.OntModel;
+
+import dssearch.model.Entry;
+import dssearch.model.Search;
 
 public class DSSearch extends HttpServlet {
 
@@ -14,38 +20,33 @@ public class DSSearch extends HttpServlet {
 	@Override
 	protected void doGet(HttpServletRequest request, HttpServletResponse response)
 			throws ServletException, IOException {
-		
-		response.getWriter().write(write_form());
+		response.getWriter().write("Error: Get method not implemented.");
 	}
 
 	@Override
 	protected void doPost(HttpServletRequest request, HttpServletResponse response)
 			throws ServletException, IOException {
-		response.getWriter().write("Error: POST method not implemented.");
+		String void_ = request.getParameter("void").toString();
+		if (void_ == null || void_.equals(""))
+			void_ = getVoid(request.getParameter("url").toString());
+		OntModel ontVoid = loadVoid(void_);
+		List<Entry> result = Search.search(ontVoid, 50, 0, "default");
+		response.getWriter().write("");
 	}
-	
-	private String write_form(){
-		String form="";
-		form+="<html>\n";
-		form+="<head>\n";
-		form+="<center><h1>Dataset Search</h1></center>\n";
-		form+="</head>\n";
-		form+="<body>\n";
-		form+="<br><br><br>\n";
-		form+="<table align=\"center\">\n";
-		form+="<tr>\n";
-		form+="<tc><img src=\"LOD_Cloud_Diagram.png\" alt=\"LOD Cloud Diagram\" style=\"width:404px;height:228px;\"></tc>\n";
-		form+="</tr>\n";
-		form+="<tr>\n";
-		form+="<tc>\n";
-		form+="<form name=\"search\" action=\"/dssearch\" method=\"post\">\n";	
-		form+="<input type=\"text\" size=\"80\" name=\"void\"\"/\">";
-		form+="</form>\n";
-		form+="</tc>\n";
-		form+="</tr>\n";
-		form+="</table>";
-		form+="</body>\n";
-		form+="</html>\n";
-		return form;
+
+	private String getVoid(String url) {
+		String void_ = "";
+		//
+		// TODO Carregar descrição Void
+		//
+		return void_;
+	}
+
+	private OntModel loadVoid(String void_) {
+		OntModel ontVoid = null;
+		//
+		// TODO Converter descrição void para modelo Ontologia Jena
+		//
+		return ontVoid;
 	}
 }
