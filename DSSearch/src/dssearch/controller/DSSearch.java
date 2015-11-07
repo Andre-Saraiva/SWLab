@@ -30,7 +30,7 @@ public class DSSearch extends HttpServlet {
 		if (void_ == null || void_.equals(""))
 			void_ = getVoid(request.getParameter("url").toString());
 		OntModel ontVoid = loadVoid(void_);
-		List<Entry> result = Search.search(ontVoid, 50, 0, "default");
+		List<Entry> result = Search.search(ontVoid, 20, 0, "default");
 		response.getWriter().write("");
 	}
 
