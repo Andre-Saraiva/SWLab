@@ -33,8 +33,8 @@ public class NewSearch extends HttpServlet {
 		else
 			ontVoid = getOntVoid(request.getParameter("url").toString());
 		String method = request.getParameter("method").toString();
-		int limit = 12;
-		int offset = 10;
+		int limit = 10;
+		int offset = 0;
 
 		List<Entry> result = Search.execute(ontVoid, limit, offset, method);
 		request.getSession().setAttribute("result", result);

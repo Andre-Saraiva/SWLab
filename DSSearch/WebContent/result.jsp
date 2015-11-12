@@ -23,16 +23,16 @@
 <!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN" "http://www.w3.org/TR/html4/loose.dtd">
 <html>
 <head>
-<script>
-	function previous() {
+<script type="text/javascript">
+	function previous_() {
 		document.getElementById("command").value = "previous";
 		document.getElementById("pagination").submit();
 	}
-	function top() {
+	function top_() {
 		document.getElementById("command").value = "top";
 		document.getElementById("pagination").submit();
 	}
-	function next() {
+	function next_() {
 		document.getElementById("command").value = "next";
 		document.getElementById("pagination").submit();
 	}
@@ -55,11 +55,11 @@
 	<center>
 		<form name="pagination" id="pagination" action="showresult" method="post">
 			<input type="hidden" name="command" id="command"> 
-			<a href="javascript:previous();">previous</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-			<a href="javascript:top();">top</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 
-			<a href="javascript:next();">next</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 
-			<a href="<%=request.getContextPath()%>">(new search)</a>
 		</form>
+		<a href="javascript:previous_();">previous</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+		<a href="javascript:top_();">top</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 
+		<a href="javascript:next_();">next</a>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 
+		<a href="<%=request.getContextPath()%>">(new search)</a>
 	</center>
 </body>
 </html>

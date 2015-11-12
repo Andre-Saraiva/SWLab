@@ -23,7 +23,7 @@ public class ShowResult extends HttpServlet {
 
 		int limit = (Integer) request.getSession().getAttribute("limit");
 		int offset = (Integer) request.getSession().getAttribute("offset");
-		String command = (String) request.getParameter("command");
+		String command = (String) request.getParameter("command"); 	
 		if (command.equals("next"))
 			offset += limit;
 		else if (command.equals("previous"))
