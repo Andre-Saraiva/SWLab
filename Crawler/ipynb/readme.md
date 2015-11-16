@@ -28,5 +28,8 @@ Sugiro usar o segundo, por apresentar todos os ids de dataset no datahub usando 
 ```
 $ pip install requests
 ```
-
+- aiohttp, aiopg, sqlalchemy
+```
+$ pip install aiohttp, aiopg, sqlalchemy
+```
 
