@@ -5,6 +5,7 @@ Created on 03/11/2015
 '''
 
 import argparse
+import json
 from .load_list import load_datahub_list
 from functools import partial
 
@@ -22,10 +23,10 @@ def datahub_func(args):
         crawler(names)
     done = [k for k, v in crawler.done.items() if v]
     failed = [k for k, v in crawler.done.items() if not v]
-    with open('done.txt', 'a') as result:
-        result.write('\n'.join(done))
-    with open('failed.txt', 'a') as result:
-        result.write('\n'.join(failed))
+    with open('done.json', 'w') as result:
+        json.dump(done, result)
+    with open('failed.json', 'w') as result:
+        json.dump(failed, result)
 
 
 def create_database(args):
@@ -51,7 +52,7 @@ def main():
     datahub.add_argument('-a', '--async', type=int, default=5,
                          help=("Número de requisições em paralelo no asyncio. "
                          "Se valor for 0, não usa asyncio"))
-    datahub.add_argument('-c', '--cache', action='store_true', default=True,
+    datahub.add_argument('-c', '--cache', type=str, default='.list_cache.json',
                          help="Armazenar lista em cache")
     datahub.set_defaults(func=datahub_func)
     

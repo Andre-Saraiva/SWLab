@@ -61,7 +61,7 @@ resources = Table(
     'resources', metadata,
     Column('resource_id', Integer, primary_key=True),
     Column('format', String(500)),
-    Column('url', String(2083)),
+    Column('url', String(10000)),
     Column('source', String(45)),
     Column('description', String(5000)),
     Column('is_online', Boolean),
@@ -160,6 +160,19 @@ def to_date(x):
             format += '.%f'
         return datetime.strptime(x, format)
     return x
+
+def to_int(x):
+    if isinstance(x, int):
+        return x
+    if x.startswith('>'):
+        x = x[1:]
+    if '.' in x:
+        x = x.replace('.', '')
+    x = x.strip()
+    if x.isdigit():
+        return x
+    return None
+    
 
 def first(gen):
     """ Retorna primeiro elemento """

@@ -7,14 +7,15 @@ import requests
 import os
 import json
 
-def load_datahub_list(use_cache=False):
-    if use_cache and os.path.exists('.list_cache.json'):
-        with open('.list_cache.json', 'r') as cache:
-            return json.load(cache)
+def load_datahub_list(cache='.list_cache.json'):
+    if cache and os.path.exists(cache):
+        with open(cache, 'r') as cachef:
+            return json.load(cachef)
         
     resp = requests.get('http://datahub.io/api/rest/dataset')
     if resp.status_code == 200:
         result = resp.json()
-        with open('.list_cache.json', 'w') as cache:
-            json.dump(result, cache)
+        if cache:
+            with open(cache, 'w') as cachef:
+                json.dump(result, cachef)
         return result

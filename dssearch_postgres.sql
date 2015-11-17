@@ -35,7 +35,7 @@ CREATE TABLE datasets (
 CREATE TABLE resources (
   resource_id SERIAL NOT NULL,
   format VARCHAR(500),
-  url VARCHAR(2083),
+  url VARCHAR(10000),
   source VARCHAR(45),
   description VARCHAR(5000),
   is_online BOOLEAN,

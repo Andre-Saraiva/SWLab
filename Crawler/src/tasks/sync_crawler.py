@@ -7,7 +7,7 @@ import requests
 import tqdm
 from datetime import datetime as dt
 from sqlalchemy import select
-from .models import engine, load_types, first, to_date, to_where
+from .models import engine, load_types, first, to_date, to_where, to_int
 from .models import datasets, features, dataset_features, resources
 
 
@@ -57,8 +57,7 @@ class SyncCrawler:
             if (resp.status_code == 200 and
                 ('json' in resp.headers.get('content-type'))):
                 data = resp.json()
-                self.process_dataset(data, url)
-                self.done[name] = True
+                self.done[name] = self.process_dataset(data, url)
             else:
                 self.done[name] = False
             resp.close()
@@ -88,8 +87,10 @@ class SyncCrawler:
                 other = self.dataset_by_name(relationship['object'])
                 self.create_dataset_feature(relationships_resource, dataset, other,
                                             relationship['comment'])
+            return True
         except Exception as exc:
             print('...', data['name'], 'has error', repr(str(exc)))
+            return False
 
 
     def dataset_by_name(self, name):
@@ -142,10 +143,10 @@ class SyncCrawler:
     def create_resource(self, format, url, source, description, is_online, fid):
         """ Seleciona recurso por url, format e source
         Se recurso não existir, cria novo """
-        identifier = dict(format=format, url=url, source=source)
+        identifier = dict(format=format, url=url[:10000], source=source)
         rselect = select([resources]).where(to_where(resources, identifier))
         rinsert = resources.insert().values(
-            description=description, is_online=is_online, feature_id=fid,
+            description=description[:5000], is_online=is_online, feature_id=fid,
             **identifier).returning(resources)
 
         with self as conn:
@@ -162,10 +163,10 @@ class SyncCrawler:
                           resource_id=resource.resource_id)
         where = to_where(dataset_features, identifier)
         dfselect = select([dataset_features]).where(where)
-        dfupdate = dataset_features.update().values(count=count).where(
+        dfupdate = dataset_features.update().values(count=to_int(count)).where(
             where).returning(dataset_features)
         dfinsert = dataset_features.insert().values(
-            count=count, **identifier).returning(dataset_features)
+            count=to_int(count), **identifier).returning(dataset_features)
 
         with self as conn:
             df = first(conn.execute(dfselect))
