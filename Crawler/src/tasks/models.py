@@ -5,7 +5,7 @@ Created on 16/11/2015
 '''
 from datetime import datetime
 from sqlalchemy import create_engine, Table, MetaData, Column
-from sqlalchemy import Integer, String, DateTime, Boolean
+from sqlalchemy import Integer, String, DateTime, Boolean, LargeBinary
 from sqlalchemy import ForeignKeyConstraint, select, and_
 
 
@@ -66,8 +66,8 @@ resources = Table(
     Column('description', String(5000)),
     Column('is_online', Boolean),
     Column('feature_id', Integer),
-    ForeignKeyConstraint(['feature_id'], [datasets.c.feature_id], 
-                         name='fk_resources_datasets',
+    ForeignKeyConstraint(['feature_id'], [features.c.feature_id],
+                         name='fk_resources_features',
                          ondelete='NO ACTION', onupdate='NO ACTION')
 )
 
@@ -89,6 +89,20 @@ dataset_features = Table(
                          ondelete='NO ACTION', onupdate='NO ACTION')
 )
 
+check_voids = Table(
+    'check_voids', metadata,
+    Column('check_void_id', Integer, primary_key=True),
+    Column('content_type', String(255)),
+    Column('url', String(2083)),
+    Column('source', String(45)),
+    Column('feature_id', Integer),
+    Column('content', LargeBinary),
+    ForeignKeyConstraint(['feature_id'], [features.c.feature_id],
+                         name='fk_check_voids_features',
+                         ondelete='NO ACTION', onupdate='NO ACTION')
+
+)
+
 
 def activate_logging():
     """ Ativa log do SQLAlchemy """
@@ -102,7 +116,7 @@ def create_database():
     eng = create_engine(
         "postgres://{}:{}@{}/postgres".format(USER, PASSWORD, HOST),
         client_encoding="utf8")
-    
+
     conn = engine.connect()
     conn.execute('commit')
     conn.execute('create database {}'.format(DATABASE))
@@ -111,6 +125,8 @@ def create_database():
 
 def create_schema():
     """ Cria tabelas e popula tipos de features """
+    if check_voids.exists():
+        check_voids.drop()
     if dataset_features.exists():
         dataset_features.drop()
     if resources.exists():
@@ -126,7 +142,8 @@ def create_schema():
     datasets.create()
     resources.create()
     dataset_features.create()
-    
+    check_voids.create()
+
     conn = engine.connect()
     conn.execute(
         types.insert(), [
@@ -149,9 +166,9 @@ def load_types():
 
 def to_where(table, identifier):
     """ Transforma dicionário em condição de where """
-    return and_((getattr(table.c, name) == value) 
+    return and_((getattr(table.c, name) == value)
                 for name, value in identifier.items())
-    
+
 
 def to_date(x):
     if isinstance(x, str):
@@ -172,7 +189,7 @@ def to_int(x):
     if x.isdigit():
         return x
     return None
-    
+
 
 def first(gen):
     """ Retorna primeiro elemento """

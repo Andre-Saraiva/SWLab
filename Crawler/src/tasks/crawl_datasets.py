@@ -7,18 +7,22 @@ Created on 03/11/2015
 import argparse
 import json
 from .load_list import load_datahub_list
+from .void_url import void_list
 from functools import partial
 
-def datahub_func(args):
-    names = load_datahub_list(args.cache)
-    first = args.first
-    last = args.last if args.last != -1 else len(names)
+def limit(names, first, last):
+    last = last if last != -1 else len(names)
     if last < first:
         first = first - 1 if first else None
         last = last - 1
         names = names[last:first:-1]
     else:
         names = names[first:last]
+    return names
+
+def datahub_func(args):
+    names = load_datahub_list(args.cache)
+    names = limit(names, args.first, args.last)
 
     if args.async > 0:
         import asyncio
@@ -42,15 +46,37 @@ def create_database(args):
     from .models import create_database
     create_database()
 
+
 def create_schema(args):
     from .models import create_schema
     create_schema()
+
 
 def database_func(parser, args):
     if hasattr(args, 'dfunc'):
         args.dfunc(args)
     else:
         parser.print_help()
+
+
+def void_func(args):
+    voids_groups = void_list()
+    keys = list(voids_groups.keys())
+    print(len(keys))
+    keys = limit(keys, args.first, args.last)
+    voids_groups = {key: voids_groups[key] for key in keys}
+
+    if args.async > 0:
+        import asyncio
+        from .async_void_crawler import AsyncVoidCrawler
+        loop = asyncio.get_event_loop()
+        crawler = AsyncVoidCrawler(loop, args.async)
+        loop.run_until_complete(crawler(voids_groups))
+    else:
+        from .void_crawler import VoidCrawler
+        crawler = VoidCrawler()
+        crawler(voids_groups)
+
 
 def main():
     parser = argparse.ArgumentParser()
@@ -78,6 +104,19 @@ def main():
         dfunc=create_schema)
 
     database.set_defaults(func=partial(database_func, database))
+
+
+    void = subparsers.add_parser(
+        'void', help='Buscar voids a partir de urls')
+    void.add_argument('-a', '--async', type=int, default=5,
+                         help=("Número de requisições em paralelo no asyncio. "
+                         "Se valor for 0, não usa asyncio"))
+    void.add_argument('-f', '--first', type=int, default=0,
+                         help="Primeiro dataset: [first, last)")
+    void.add_argument('-l', '--last', type=int, default=-1,
+                         help="Ultimo dataset: [first, last). -1 indica último")
+    void.set_defaults(func=void_func)
+
 
     args, _ = parser.parse_known_args()
     if hasattr(args, 'func'):

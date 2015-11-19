@@ -1,3 +1,4 @@
+DROP TABLE IF EXISTS check_voids;
 DROP TABLE IF EXISTS dataset_features;
 DROP TABLE IF EXISTS resources;
 DROP TABLE IF EXISTS datasets;
@@ -41,7 +42,7 @@ CREATE TABLE resources (
   is_online BOOLEAN,
   feature_id INTEGER,
   PRIMARY KEY (resource_id),
-  CONSTRAINT fk_resources_datasets FOREIGN KEY(feature_id) REFERENCES datasets (feature_id) ON DELETE NO ACTION ON UPDATE NO ACTION
+  CONSTRAINT fk_resources_features FOREIGN KEY(feature_id) REFERENCES features (feature_id) ON DELETE NO ACTION ON UPDATE NO ACTION
 );
 
 
@@ -54,6 +55,17 @@ CREATE TABLE dataset_features (
   CONSTRAINT fk_dataset_features_datasets FOREIGN KEY(ds_feature_id) REFERENCES datasets (feature_id) ON DELETE NO ACTION ON UPDATE NO ACTION,
   CONSTRAINT fk_dataset_features_features FOREIGN KEY(ft_feature_id) REFERENCES features (feature_id) ON DELETE NO ACTION ON UPDATE NO ACTION,
   CONSTRAINT fk_dataset_features_resources FOREIGN KEY(resource_id) REFERENCES resources (resource_id) ON DELETE NO ACTION ON UPDATE NO ACTION
+);
+
+CREATE TABLE check_voids (
+  check_void_id SERIAL NOT NULL,
+  content_type VARCHAR(255),
+  url VARCHAR(2083),
+  source VARCHAR(45),
+  feature_id INTEGER,
+  content BYTEA,
+  PRIMARY KEY (check_void_id),
+  CONSTRAINT fk_check_voids_features FOREIGN KEY(feature_id) REFERENCES features (feature_id) ON DELETE NO ACTION ON UPDATE NO ACTION
 );
 
 INSERT INTO types (name) VALUES ('dataset');
