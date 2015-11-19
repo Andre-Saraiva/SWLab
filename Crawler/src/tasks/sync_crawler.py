@@ -44,6 +44,10 @@ class SyncCrawler:
     def __exit__(self, *args):
         self.conn.close()
 
+    def update_done(self, name):
+        with open('done.txt' if self.done[name] else 'failed.txt', 'a') as fil:
+            fil.write(name + '\n')
+
     def get_page(self, name):
         """ Carrega página de dataset do datahub """
         self.todo.remove(name)
@@ -61,6 +65,7 @@ class SyncCrawler:
             else:
                 self.done[name] = False
             resp.close()
+        self.update_done(name)
 
     def process_dataset(self, data, url):
         """ Processa JSON de dataset do datahub """
@@ -124,7 +129,7 @@ class SyncCrawler:
         dselect = select([datasets]).where(where)
         dupdate = datasets.update().values(
             url=data['url'], meta_id=data['id']).where(
-                where).returning(datasets)
+                datasets.c.feature_id == dataset.feature_id).returning(datasets)
 
         with self as conn:
             conn.execute(fupdate)

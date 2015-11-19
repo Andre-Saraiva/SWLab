@@ -11,6 +11,15 @@ from functools import partial
 
 def datahub_func(args):
     names = load_datahub_list(args.cache)
+    first = args.first
+    last = args.last if args.last != -1 else len(names)
+    if last < first:
+        first = first - 1 if first else None
+        last = last - 1
+        names = names[last:first:-1]
+    else:
+        names = names[first:last]
+
     if args.async > 0:
         import asyncio
         from .async_crawler import AsyncCrawler
@@ -32,11 +41,11 @@ def datahub_func(args):
 def create_database(args):
     from .models import create_database
     create_database()
-    
+
 def create_schema(args):
     from .models import create_schema
     create_schema()
-    
+
 def database_func(parser, args):
     if hasattr(args, 'dfunc'):
         args.dfunc(args)
@@ -46,7 +55,7 @@ def database_func(parser, args):
 def main():
     parser = argparse.ArgumentParser()
     subparsers = parser.add_subparsers()
-    
+
     datahub = subparsers.add_parser(
         'datahub', help='Buscar datasets no datahub')
     datahub.add_argument('-a', '--async', type=int, default=5,
@@ -54,8 +63,12 @@ def main():
                          "Se valor for 0, não usa asyncio"))
     datahub.add_argument('-c', '--cache', type=str, default='.list_cache.json',
                          help="Armazenar lista em cache")
+    datahub.add_argument('-f', '--first', type=int, default=0,
+                         help="Primeiro dataset: [first, last)")
+    datahub.add_argument('-l', '--last', type=int, default=-1,
+                         help="Ultimo dataset: [first, last). -1 indica último")
     datahub.set_defaults(func=datahub_func)
-    
+
     database = subparsers.add_parser(
         'db', help='Database operations')
     dparsers = database.add_subparsers()

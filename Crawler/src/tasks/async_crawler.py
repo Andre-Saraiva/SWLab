@@ -21,7 +21,7 @@ def wait_with_progress(coros):
         yield from f
 
 class AsyncCrawler:
-    
+
     def __init__(self, loop, count):
         self.todo = set()
         self.done = {}
@@ -30,21 +30,26 @@ class AsyncCrawler:
         self.tasks = set()
         self.loop = loop
         self.connector = aiohttp.TCPConnector(share_cookies=True, loop=loop)
-        
+
     def __del__(self):
         self.connector.close()
-    
+
     @asyncio.coroutine
     def __call__(self, names):
         """ Executa crawler """
         self.engine = yield from create_engine(
             user=USER, database=DATABASE, host=HOST, password=PASSWORD)
-        
+
         for name in names:
             self.todo.add(name)
             self.tasks.add(self.get_page(name))
-            
+
         yield from wait_with_progress(self.tasks)
+
+    @asyncio.coroutine
+    def update_done(self, name):
+        with open('done.txt' if self.done[name] else 'failed.txt', 'a') as fil:
+            fil.write(name + '\n')
 
     @asyncio.coroutine
     def get_page(self, name):
@@ -66,9 +71,11 @@ class AsyncCrawler:
                 else:
                     self.done[name] = False
                 resp.close()
-            
+            yield from self.update_done(name)
+
+
     @asyncio.coroutine
-    def process_dataset(self, data, url):  
+    def process_dataset(self, data, url):
         """ Processa JSON de dataset do datahub """
         try:
             dataset = yield from self.dataset_by_name(data['name'])
@@ -131,7 +138,7 @@ class AsyncCrawler:
         dselect = select([datasets]).where(where)
         dupdate = datasets.update().values(
             url=data['url'], meta_id=data['id']).where(
-                where).returning(datasets)
+                datasets.c.feature_id == dataset.feature_id).returning(datasets)
             
         with (yield from self.engine) as conn:
             yield from conn.execute(fupdate)
