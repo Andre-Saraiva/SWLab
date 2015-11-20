@@ -64,9 +64,21 @@ CREATE TABLE check_voids (
   source VARCHAR(45),
   feature_id INTEGER,
   content BYTEA,
+  encoding VARCHAR(255),
+  hash VARCHAR(255),
   PRIMARY KEY (check_void_id),
   CONSTRAINT fk_check_voids_features FOREIGN KEY(feature_id) REFERENCES features (feature_id) ON DELETE NO ACTION ON UPDATE NO ACTION
 );
+
+CREATE TABLE resource_cache (
+  resource_id INTEGER NOT NULL,
+  hash VARCHAR(255),
+  content BYTEA,
+  content_type VARCHAR(255),
+  PRIMARY KEY (resource_id),
+  encoding VARCHAR(255),
+  CONSTRAINT fk_resource_cache_resources FOREIGN KEY(resource_id) REFERENCES resources (resource_id) ON DELETE NO ACTION ON UPDATE NO ACTION
+)
 
 INSERT INTO types (name) VALUES ('dataset');
 INSERT INTO types (name) VALUES ('property');

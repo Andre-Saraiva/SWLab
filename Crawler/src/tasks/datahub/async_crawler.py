@@ -5,20 +5,22 @@ Created on 17/11/2015
 '''
 import asyncio
 import aiohttp
-import tqdm
-from aiopg.sa import create_engine
-from datetime import datetime as dt
-from sqlalchemy import select
-from .models import load_types, first, to_date, to_where, to_int
-from .models import datasets, features, dataset_features, resources
-from .models import USER, DATABASE, HOST, PASSWORD
-from .sync_crawler import extra_links, relationships
 
+from ..async_utils import wait_with_progress
 
-@asyncio.coroutine
-def wait_with_progress(coros):
-    for f in tqdm.tqdm(asyncio.as_completed(coros), total=len(coros)):
-        yield from f
+from ..database.async_connection import engine
+
+from ..database.queries import load_types, first
+from ..database.queries import min_created_date, max_modified_date
+from ..database.queries import (
+    fq_dataset_by_name, fq_insert_feature, fq_datahub_dataset_insert,
+    fq_update_feature, fq_select_dataset, fq_update_dataset, fi_resource,
+    fq_select_resource, fq_insert_resource, fi_dataset_feature,
+    fq_select_dataset_feature, fq_update_dataset_feature,
+    fq_insert_dataset_feature)
+
+from .shared import extra_links, relationships, update_done
+
 
 class AsyncCrawler:
 
@@ -37,19 +39,13 @@ class AsyncCrawler:
     @asyncio.coroutine
     def __call__(self, names):
         """ Executa crawler """
-        self.engine = yield from create_engine(
-            user=USER, database=DATABASE, host=HOST, password=PASSWORD)
+        self.engine = yield from engine()
 
         for name in names:
             self.todo.add(name)
             self.tasks.add(self.get_page(name))
 
         yield from wait_with_progress(self.tasks)
-
-    @asyncio.coroutine
-    def update_done(self, name):
-        with open('done.txt' if self.done[name] else 'failed.txt', 'a') as fil:
-            fil.write(name + '\n')
 
     @asyncio.coroutine
     def get_page(self, name):
@@ -71,7 +67,7 @@ class AsyncCrawler:
                 else:
                     self.done[name] = False
                 resp.close()
-            yield from self.update_done(name)
+            update_done(self.done, name)
 
 
     @asyncio.coroutine
@@ -81,22 +77,22 @@ class AsyncCrawler:
             dataset = yield from self.dataset_by_name(data['name'])
             dataset = yield from self.update_dataset(dataset, data)
             fid = dataset.feature_id
-    
+
             extras_resource = yield from self.create_resource(
-                'datahub/extras', url, 'datahub', 'Extras', True, fid) 
+                'datahub/extras', url, 'datahub', 'Extras', True, fid)
             relationships_resource = yield from self.create_resource(
                 'datahub/relationships', url, 'datahub', 'Relationships', True, fid)
-    
+
             for resource in data['resources']:
                 yield from self.create_resource(
-                    resource['format'], resource['url'], 'datahub', 
+                    resource['format'], resource['url'], 'datahub',
                     resource['description'], None, dataset.feature_id)
-    
+
             for name, count in extra_links(data['extras']):
                 other = yield from self.dataset_by_name(name)
                 yield from self.create_dataset_feature(
                     extras_resource, dataset, other, count)
-    
+
             for relationship in relationships(data['relationships']):
                 other = yield from self.dataset_by_name(relationship['object'])
                 yield from self.create_dataset_feature(
@@ -108,15 +104,12 @@ class AsyncCrawler:
 
     @asyncio.coroutine
     def dataset_by_name(self, name):
-        """ Seleciona dataset por nome do datahub 
+        """ Seleciona dataset por nome do datahub
         Se não existir, cria novo """
-        datahub = 'http://datahub.io/dataset/{}'.format(name)
-        dselect = select([datasets]).where(datasets.c.name == name)
-        finsert = features.insert().values(
-            type_id=self.types_id['dataset']).returning(features)
-        dinsert = datasets.insert().values(
-            meta='datahub', meta_url=datahub, name=name).returning(datasets)
-        
+        dselect = fq_dataset_by_name(name)
+        finsert = fq_insert_feature(self.types_id['dataset'])
+        dinsert = fq_datahub_dataset_insert(name)
+
         with (yield from self.engine) as conn:
             dataset = first((yield from conn.execute(dselect)))
             if dataset:
@@ -125,44 +118,36 @@ class AsyncCrawler:
             feature = first((yield from conn.execute(finsert)))
             return first((yield from conn.execute(
                 dinsert.values(feature_id=feature.feature_id))))
-        
-    @asyncio.coroutine        
+
+    @asyncio.coroutine
     def update_dataset(self, dataset, data):
         """ Atualiza dataset e namespace de feature de acordo com dados """
         namespace = data['url']
         if 'namespace' in data['extras']:
             namespace = data['extras']['namespace']
-        
-        where = (features.c.feature_id == dataset.feature_id)
-        fupdate = features.update().values(namespace=namespace).where(where)
-        dselect = select([datasets]).where(where)
-        dupdate = datasets.update().values(
-            url=data['url'], meta_id=data['id']).where(
-                datasets.c.feature_id == dataset.feature_id).returning(datasets)
-            
+
+        fid = dataset.feature_id
+        fupdate = fq_update_feature(namespace, fid)
+        dselect = fq_select_dataset(fid)
+        dupdate = fq_update_dataset(data['url'], data['id'], fid)
+
         with (yield from self.engine) as conn:
             yield from conn.execute(fupdate)
             ds = first((yield from conn.execute(dselect)))
-            created_at = min(
-                to_date(ds.created_at) if ds and ds.created_at else dt.max,
-                to_date(data['metadata_created']))
-            modified_at = max(
-                to_date(ds.modified_at) if ds and ds.modified_at else dt.min, 
-                to_date(data['metadata_modified']))
-           
+            created_at = min_created_date(ds, data['metadata_created'])
+            modified_at = max_modified_date(ds, data['metadata_modified'])
+
             return first((yield from conn.execute(dupdate.values(
                 created_at=created_at, modified_at=modified_at))))
 
     @asyncio.coroutine
-    def create_resource(self, format, url, source, description, is_online, fid):
+    def create_resource(self, rformat, url, source, desc, is_online, fid):
         """ Seleciona recurso por url, format e source
         Se recurso não existir, cria novo """
-        identifier = dict(format=format, url=url[:10000], source=source)
-        rselect = select([resources]).where(to_where(resources, identifier))
-        rinsert = resources.insert().values(
-            description=description[:5000], is_online=is_online, feature_id=fid,
-            **identifier).returning(resources)
-        
+        identifier = fi_resource(rformat, url, source)
+        rselect = fq_select_resource(identifier)
+        rinsert = fq_insert_resource(identifier, desc, is_online, fid)
+
         with (yield from self.engine) as conn:
             resource = first((yield from conn.execute(rselect)))
             if resource:
@@ -171,20 +156,16 @@ class AsyncCrawler:
 
     @asyncio.coroutine
     def create_dataset_feature(self, resource, dataset, feature, count):
-        """ Cria relacionamento entre dataset e feature 
+        """ Cria relacionamento entre dataset e feature
         Se existir algum, atualiza o count """
-        identifier = dict(ds_feature_id=dataset.feature_id, 
-                          ft_feature_id=feature.feature_id, 
-                          resource_id=resource.resource_id)
-        where = to_where(dataset_features, identifier)
-        dfselect = select([dataset_features]).where(where)
-        dfupdate = dataset_features.update().values(count=to_int(count)).where(
-            where).returning(dataset_features)
-        dfinsert = dataset_features.insert().values(
-            count=to_int(count), **identifier).returning(dataset_features)
-        
+        identifier = fi_dataset_feature(
+            dataset.feature_id, feature.feature_id, resource.resource_id)
+
+        dfselect = fq_select_dataset_feature(identifier)
+        dfupdate = fq_update_dataset_feature(identifier, count)
+        dfinsert = fq_insert_dataset_feature(identifier, count)
+
         with (yield from self.engine) as conn:
             df = first((yield from conn.execute(dfselect)))
             return first(
                 (yield from conn.execute(dfupdate if df else dfinsert)))
-      

@@ -4,25 +4,21 @@ Created on 16/11/2015
 @author: Joao Pimentel
 '''
 import requests
-import tqdm
-from datetime import datetime as dt
-from sqlalchemy import select
-from .models import engine, load_types, first, to_date, to_where, to_int
-from .models import datasets, features, dataset_features, resources
 
+from ..utils import progress
 
-def extra_links(extras):
-    for key, value in extras.items():
-        if key.startswith('links:'):
-            yield (key[6:], value)
+from ..database.connection import connect
 
+from ..database.queries import load_types, first
+from ..database.queries import min_created_date, max_modified_date
+from ..database.queries import (
+    fq_dataset_by_name, fq_insert_feature, fq_datahub_dataset_insert,
+    fq_update_feature, fq_select_dataset, fq_update_dataset, fi_resource,
+    fq_select_resource, fq_insert_resource, fi_dataset_feature,
+    fq_select_dataset_feature, fq_update_dataset_feature,
+    fq_insert_dataset_feature)
 
-
-def relationships(relations):
-    for relationship in relations:
-        if relationship['type'] == 'links_to':
-            yield relationship
-
+from .shared import extra_links, relationships, update_done
 
 class SyncCrawler:
 
@@ -33,20 +29,11 @@ class SyncCrawler:
 
     def __call__(self, names):
         """ Executa crawler """
-        for name in tqdm.tqdm(names):
+        self.engine = connect
+
+        for name in progress(names):
             self.todo.add(name)
             self.get_page(name)
-
-    def __enter__(self):
-        self.conn = engine.connect()
-        return self.conn
-
-    def __exit__(self, *args):
-        self.conn.close()
-
-    def update_done(self, name):
-        with open('done.txt' if self.done[name] else 'failed.txt', 'a') as fil:
-            fil.write(name + '\n')
 
     def get_page(self, name):
         """ Carrega página de dataset do datahub """
@@ -65,7 +52,7 @@ class SyncCrawler:
             else:
                 self.done[name] = False
             resp.close()
-        self.update_done(name)
+        update_done(self.done, name)
 
     def process_dataset(self, data, url):
         """ Processa JSON de dataset do datahub """
@@ -73,21 +60,21 @@ class SyncCrawler:
             dataset = self.dataset_by_name(data['name'])
             dataset = self.update_dataset(dataset, data)
             fid = dataset.feature_id
-    
+
             extras_resource = self.create_resource(
                 'datahub/extras', url, 'datahub', 'Extras', True, fid)
             relationships_resource = self.create_resource(
                 'datahub/relationships', url, 'datahub', 'Relationships', True, fid)
-    
+
             for resource in data['resources']:
                 self.create_resource(
                     resource['format'], resource['url'], 'datahub',
                     resource['description'], None, dataset.feature_id)
-    
+
             for name, count in extra_links(data['extras']):
                 other = self.dataset_by_name(name)
                 self.create_dataset_feature(extras_resource, dataset, other, count)
-    
+
             for relationship in relationships(data['relationships']):
                 other = self.dataset_by_name(relationship['object'])
                 self.create_dataset_feature(relationships_resource, dataset, other,
@@ -101,14 +88,11 @@ class SyncCrawler:
     def dataset_by_name(self, name):
         """ Seleciona dataset por nome do datahub
         Se não existir, cria novo """
-        datahub = 'http://datahub.io/dataset/{}'.format(name)
-        dselect = select([datasets]).where(datasets.c.name == name)
-        finsert = features.insert().values(
-            type_id=self.types_id['dataset']).returning(features)
-        dinsert = datasets.insert().values(
-            meta='datahub', meta_url=datahub, name=name).returning(datasets)
+        dselect = fq_dataset_by_name(name)
+        finsert = fq_insert_feature(self.types_id['dataset'])
+        dinsert = fq_datahub_dataset_insert(name)
 
-        with self as conn:
+        with self.engine as conn:
             dataset = first(conn.execute(dselect))
             if dataset:
                 return dataset
@@ -117,44 +101,36 @@ class SyncCrawler:
             return first(conn.execute(
                 dinsert.values(feature_id=feature.feature_id)))
 
-
     def update_dataset(self, dataset, data):
         """ Atualiza dataset e namespace de feature de acordo com dados """
         namespace = data['url']
         if 'namespace' in data['extras']:
             namespace = data['extras']['namespace']
 
-        where = (features.c.feature_id == dataset.feature_id)
-        fupdate = features.update().values(namespace=namespace).where(where)
-        dselect = select([datasets]).where(where)
-        dupdate = datasets.update().values(
-            url=data['url'], meta_id=data['id']).where(
-                datasets.c.feature_id == dataset.feature_id).returning(datasets)
+        fid = dataset.feature_id
+        fupdate = fq_update_feature(namespace, fid)
+        dselect = fq_select_dataset(fid)
+        dupdate = fq_update_dataset(data['url'], data['id'], fid)
 
-        with self as conn:
+        with self.engine as conn:
             conn.execute(fupdate)
             ds = first(conn.execute(dselect))
-            created_at = min(
-                to_date(ds.created_at) if ds and ds.created_at else dt.max,
-                to_date(data['metadata_created']))
-            modified_at = max(
-                to_date(ds.modified_at) if ds and ds.modified_at else dt.min,
-                to_date(data['metadata_modified']))
+            created_at = min_created_date(ds, data['metadata_created'])
+            modified_at = max_modified_date(ds, data['metadata_modified'])
 
             return first(conn.execute(dupdate.values(
                 created_at=created_at, modified_at=modified_at)))
 
 
-    def create_resource(self, format, url, source, description, is_online, fid):
+    def create_resource(self, rformat, url, source, desc, is_online, fid):
         """ Seleciona recurso por url, format e source
         Se recurso não existir, cria novo """
-        identifier = dict(format=format, url=url[:10000], source=source)
-        rselect = select([resources]).where(to_where(resources, identifier))
-        rinsert = resources.insert().values(
-            description=description[:5000], is_online=is_online, feature_id=fid,
-            **identifier).returning(resources)
+        identifier = fi_resource(rformat, url, source)
+        rselect = fq_select_resource(identifier)
+        rinsert = fq_insert_resource(identifier, desc, is_online, fid)
 
-        with self as conn:
+
+        with self.engine as conn:
             resource = first(conn.execute(rselect))
             if resource:
                 return resource
@@ -163,18 +139,13 @@ class SyncCrawler:
     def create_dataset_feature(self, resource, dataset, feature, count):
         """ Cria relacionamento entre dataset e feature
         Se existir algum, atualiza o count """
-        identifier = dict(ds_feature_id=dataset.feature_id,
-                          ft_feature_id=feature.feature_id,
-                          resource_id=resource.resource_id)
-        where = to_where(dataset_features, identifier)
-        dfselect = select([dataset_features]).where(where)
-        dfupdate = dataset_features.update().values(count=to_int(count)).where(
-            where).returning(dataset_features)
-        dfinsert = dataset_features.insert().values(
-            count=to_int(count), **identifier).returning(dataset_features)
+        identifier = fi_dataset_feature(
+            dataset.feature_id, feature.feature_id, resource.resource_id)
 
-        with self as conn:
+        dfselect = fq_select_dataset_feature(identifier)
+        dfupdate = fq_update_dataset_feature(identifier, count)
+        dfinsert = fq_insert_dataset_feature(identifier, count)
+
+        with self.engine as conn:
             df = first(conn.execute(dfselect))
             return first(conn.execute(dfupdate if df else dfinsert))
-        
-

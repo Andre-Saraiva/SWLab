@@ -3,24 +3,11 @@ Created on 16/11/2015
 
 @author: Joao Pimentel
 '''
-from datetime import datetime
-from sqlalchemy import create_engine, Table, MetaData, Column
+from sqlalchemy import Table, Column
 from sqlalchemy import Integer, String, DateTime, Boolean, LargeBinary
-from sqlalchemy import ForeignKeyConstraint, select, and_
+from sqlalchemy import ForeignKeyConstraint
 
-
-USER = "postgres"
-PASSWORD = "postgres"
-HOST = "127.0.0.1"
-DATABASE = "swlab"
-
-
-engine = create_engine(
-    "postgresql+psycopg2://{}:{}@{}/{}".format(USER, PASSWORD, HOST, DATABASE),
-    client_encoding="utf8")
-
-metadata = MetaData()
-metadata.bind = engine
+from .connection import metadata, connect
 
 
 types = Table(
@@ -51,7 +38,7 @@ datasets = Table(
     Column('url', String(2083)),
     Column('created_at', DateTime),
     Column('modified_at', DateTime),
-    ForeignKeyConstraint(['feature_id'], [features.c.feature_id], 
+    ForeignKeyConstraint(['feature_id'], [features.c.feature_id],
                          name='fk_datasets_features',
                          ondelete='NO ACTION', onupdate='NO ACTION')
 )
@@ -97,34 +84,31 @@ check_voids = Table(
     Column('source', String(45)),
     Column('feature_id', Integer),
     Column('content', LargeBinary),
+    Column('encoding', String(255)),
+    Column('hash', String(255)),
     ForeignKeyConstraint(['feature_id'], [features.c.feature_id],
                          name='fk_check_voids_features',
                          ondelete='NO ACTION', onupdate='NO ACTION')
 
 )
 
-
-def activate_logging():
-    """ Ativa log do SQLAlchemy """
-    import logging
-    logging.basicConfig()
-    logging.getLogger('sqlalchemy.engine').setLevel(logging.INFO)
-
-
-def create_database():
-    """ Cria database """
-    eng = create_engine(
-        "postgres://{}:{}@{}/postgres".format(USER, PASSWORD, HOST),
-        client_encoding="utf8")
-
-    conn = engine.connect()
-    conn.execute('commit')
-    conn.execute('create database {}'.format(DATABASE))
-    conn.close()
+resource_cache = Table(
+    'resource_cache', metadata,
+    Column('resource_id', Integer, primary_key=True),
+    Column('hash', String(255)),
+    Column('content', LargeBinary),
+    Column('content_type', String(255)),
+    Column('encoding', String(255)),
+    ForeignKeyConstraint(['resource_id'], [resources.c.resource_id],
+                         name='fk_resource_cache_resources',
+                         ondelete='NO ACTION', onupdate='NO ACTION')
+)
 
 
 def create_schema():
     """ Cria tabelas e popula tipos de features """
+    if resource_cache.exists():
+        resource_cache.drop()
     if check_voids.exists():
         check_voids.drop()
     if dataset_features.exists():
@@ -143,55 +127,13 @@ def create_schema():
     resources.create()
     dataset_features.create()
     check_voids.create()
+    resource_cache.create()
 
-    conn = engine.connect()
-    conn.execute(
-        types.insert(), [
-            {'name': 'dataset'},
-            {'name': 'property'},
-            {'name': 'class'},
-            {'name': 'vocabulary'},
-        ])
-    conn.close()
-
-
-def load_types():
-    """ Lê tipos de features e retorna dicionário """
-    conn = engine.connect()
-    result = conn.execute(select([types]))
-    types_id = {name: tid for tid, name in result.fetchall()}
-    conn.close()
-    return types_id
-
-
-def to_where(table, identifier):
-    """ Transforma dicionário em condição de where """
-    return and_((getattr(table.c, name) == value)
-                for name, value in identifier.items())
-
-
-def to_date(x):
-    if isinstance(x, str):
-        format = '%Y-%m-%dT%H:%M:%S'
-        if '.' in x:
-            format += '.%f'
-        return datetime.strptime(x, format)
-    return x
-
-def to_int(x):
-    if isinstance(x, int):
-        return x
-    if x.startswith('>'):
-        x = x[1:]
-    if '.' in x:
-        x = x.replace('.', '')
-    x = x.strip()
-    if x.isdigit():
-        return x
-    return None
-
-
-def first(gen):
-    """ Retorna primeiro elemento """
-    for x in gen:
-        return x
+    with connect as conn:
+        conn.execute(
+            types.insert(), [
+                {'name': 'dataset'},
+                {'name': 'property'},
+                {'name': 'class'},
+                {'name': 'vocabulary'},
+            ])

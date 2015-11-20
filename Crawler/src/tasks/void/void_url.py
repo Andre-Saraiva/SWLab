@@ -5,10 +5,11 @@ Created on 19/11/2015
 '''
 from urllib.parse import urlparse
 from itertools import groupby
-from collections import OrderedDict, defaultdict
-from sqlalchemy import select, or_, and_
-from .models import engine
-from .models import features, datasets
+from collections import OrderedDict
+
+from ..database.connection import connect
+
+from ..database.queries import q_urls
 
 
 class Url:
@@ -30,18 +31,9 @@ class Url:
 
 
 def urls_list():
-    conn = engine.connect()
-    sel1 = select([datasets.c.feature_id, datasets.c.url]).where(
-        and_(datasets.c.url is not None, datasets.c.url != ""))
-    sel2 = select([features.c.feature_id,
-                   features.c.namespace.label('url')]).where(and_(
-        features.c.namespace is not None, features.c.namespace != ""))
-    sel = sel1.union(sel2)
-    result = conn.execute(sel)
-    urls = [(row.feature_id, urlparse(row.url.strip()))
-            for row in result if row.url.strip()]
-    conn.close()
-    return urls
+    with connect as conn:
+        return [(row.feature_id, urlparse(row.url.strip()))
+                for row in conn.execute(q_urls) if row.url.strip()]
 
 
 def group_domains(urls):
