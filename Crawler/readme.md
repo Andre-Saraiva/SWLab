@@ -72,7 +72,7 @@ Também é possível limitar intervalo [f, l) com os parâmetros -f e -l. Por pa
 
 ### 6\. Normalização de resources
 
- A condição de busca dos voids nos resources é complicada. Esta operação transforma o campo descrição de todos os voids em "ws(void)"
+ A condição de busca dos voids nos resources é complicada. Esta operação transforma o campo descrição de todos os voids em "WS(VOID)"
 
  ```$ python main.py resources normalize```
 

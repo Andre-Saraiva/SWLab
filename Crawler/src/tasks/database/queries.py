@@ -175,7 +175,11 @@ q_select_void = select([resources]).where(where_void)
 
 
 q_update_void = resources.update().values(description="WS(VOID)").where(
-    where_void)
+    where_void).returning(resources)
+
+
+fq_update_online_void = lambda rid, online: resources.update().values(
+    is_online=online).where(resources.c.resource_id == rid)
 
 
 fq_select_resource_cache = lambda rid: select([resource_cache]).where(
