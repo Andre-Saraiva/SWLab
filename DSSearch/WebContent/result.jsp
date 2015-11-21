@@ -1,3 +1,4 @@
+<%@ page import="java.util.*"%>
 <%@ page language="java" contentType="text/html; charset=ISO-8859-1"
 	pageEncoding="ISO-8859-1"%>
 <%
@@ -6,7 +7,7 @@
 	int limit = (Integer) request.getSession().getAttribute("limit");
 	int offset = (Integer) request.getSession().getAttribute("offset");
 %>
-<%!public String getRows(java.util.List<dssearch.model.Entry> result, int limit, int offset) {
+<%! public String getRows(java.util.List<dssearch.model.Entry> result, int limit, int offset) {
 		String rows = "";
 		int count = 0;
 		for (int i = offset; i < result.size() && count < limit; i++) {
